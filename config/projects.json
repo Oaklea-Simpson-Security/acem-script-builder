@@ -1,0 +1,94 @@
+[
+  {
+    "project_name": "models",
+    "project_id": "123",
+    "target_mode": "leaf_directories",
+    "root_paths": [
+      "Models/Feeds/",
+      "Models/Query Tools/",
+      "color-force-fusion/"
+    ],
+    "branches": [
+      "main",
+      "dev"
+    ],
+    "output_root_directory": "output",
+    "exclude_globs": [
+      "**/__pycache__/**",
+      "**/tests/**"
+    ]
+  },
+  {
+    "project_name": "acem-utilities",
+    "project_id": "456",
+    "target_mode": "whole_project",
+    "root_paths": [
+      "."
+    ],
+    "branches": [
+      "main",
+      "dev"
+    ],
+    "output_root_directory": "output"
+  },
+  {
+    "project_name": "acem-can-opener",
+    "project_id": "789",
+    "target_mode": "whole_project",
+    "root_paths": [
+      "."
+    ],
+    "branches": [
+      "main",
+      "dev"
+    ],
+    "output_root_directory": "output"
+  },
+  {
+    "project_name": "acem-utilities-explicit-demo",
+    "project_id": "456",
+    "target_mode": "explicit",
+    "branches": [
+      "main",
+      "dev"
+    ],
+    "output_root_directory": "output",
+    "targets": [
+      {
+        "name": "acem-utilities-core",
+        "include_files": [
+          "acem_utilities/data_fetcher.py",
+          "acem_utilities/preprocessing.py",
+          "acem_utilities/processing.py",
+          "acem_utilities/output_formatter.py"
+        ],
+        "exclude_files": []
+      }
+    ]
+  },
+  {
+    "project_name": "JEMA_resources",
+    "project_id": "999",
+    "target_mode": "resource_mirror",
+    "branches": [
+      "main"
+    ],
+    "root_paths": [
+      "."
+    ],
+    "output_root_directory": "output_resources",
+    "include_globs": [
+      "*.json",
+      "*.py",
+      "**/*.json",
+      "**/*.py"
+    ],
+    "exclude_globs": [
+      "**/__pycache__/**",
+      "**/tests/**"
+    ],
+    "python_extensions": [
+      ".py"
+    ]
+  }
+]
