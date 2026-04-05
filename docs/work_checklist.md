@@ -53,6 +53,7 @@ Questions to confirm:
 - Are all runnable models stored in leaf directories?
 - Are there any shared parent-level `.py` files that actually belong in the targets?
 - Are there any extra folders under `Models/` that should be excluded?
+- Do the stage filenames match your expected order?
 
 ### 2. Fusion Repo
 
@@ -75,6 +76,7 @@ Questions to confirm:
 
 - Are `color-fusion-worker`, `color-source-one`, and similar folders truly separate runnable targets?
 - Are there any support files in the parent folder that need to be included?
+- Do the stage filenames match your expected order?
 
 ### 3. acem-utilities
 
@@ -161,7 +163,8 @@ For each project:
 5. Confirm the `root_paths`.
 6. Tighten `include_globs` if needed.
 7. Tighten `exclude_globs` if needed.
-8. Save the file.
+8. Set `stage_order` for combined-script projects if the default stage filenames are wrong.
+9. Save the file.
 
 ## Environment Setup Checklist
 
@@ -197,6 +200,7 @@ Then check:
 - Did it create `output/...` files for script repos?
 - Did it create `output_resources/...` files for resource repos?
 - Did it update `state/build_state.json`?
+- Does each generated model artifact expose `run_both("<stage_name>")`?
 
 ## If Something Looks Wrong
 

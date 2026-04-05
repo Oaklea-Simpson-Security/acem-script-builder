@@ -31,6 +31,14 @@ class ProjectConfig:
     exclude_globs: list[str] = field(default_factory=list)
     python_extensions: list[str] = field(default_factory=lambda: [".py"])
     filename_prefix: str = ""
+    stage_order: list[str] = field(
+        default_factory=lambda: [
+            "data_fetcher.py",
+            "preprocessing.py",
+            "processing.py",
+            "output_formatter.py",
+        ]
+    )
 
 
 @dataclass(slots=True)
@@ -63,6 +71,7 @@ class BuildTarget:
     output_filename: str
     prod_files: list[SourceFile]
     dev_files: list[SourceFile]
+    stage_order: list[str]
     artifact_kind: str = "combined_script"
 
 
@@ -104,6 +113,15 @@ def load_project_configs(config_path: Path) -> list[ProjectConfig]:
                 exclude_globs=item.get("exclude_globs", []),
                 python_extensions=item.get("python_extensions", [".py"]),
                 filename_prefix=item.get("filename_prefix", ""),
+                stage_order=item.get(
+                    "stage_order",
+                    [
+                        "data_fetcher.py",
+                        "preprocessing.py",
+                        "processing.py",
+                        "output_formatter.py",
+                    ],
+                ),
             )
         )
     return projects

@@ -22,7 +22,7 @@ That is why `leaf_directories` is fine for v1 discovery, but explicit target man
 
 ## Recommended v1
 
-Use a config-driven orchestrator with three target modes:
+Use a config-driven orchestrator with four target modes:
 
 - `leaf_directories`: fast adoption for repos already shaped like runnable leaf models
 - `whole_project`: one repo equals one deployable output
@@ -40,6 +40,23 @@ Core v1 pipeline:
 7. Generate one combined output per target.
 8. Write local artifacts and update stored SHAs.
 
+For combined-script targets, the generated runtime model is:
+
+1. One artifact per target.
+2. `main` source embedded as prod stage source.
+3. `dev` source embedded as dev stage source.
+4. Auto-generated runtime helpers:
+   - `available_stages()`
+   - `run_prod_stage(stage_name)`
+   - `run_dev_stage(stage_name)`
+   - `run_both(stage_name)`
+
+Example runtime call:
+
+```python
+run_both("processing")
+```
+
 For resource repositories:
 
 1. Track only `main` unless there is a real need for environment comparison.
@@ -52,6 +69,7 @@ Important v1 bias:
 - Rebuild full outputs from current branch HEADs.
 - Do not attempt incremental patching of generated files.
 - Keep generation deterministic and transparent.
+- Let engineers own only normal branch code; the generator owns branch routing and dispatch.
 
 ## Recommended v2
 
@@ -73,15 +91,15 @@ Model the deployable unit directly instead of inferring it from folder shape.
 
 ## Biggest Technical Risk
 
-The current MVP executes each source file in an isolated wrapper using `exec`.
-That is robust for preserving source text and isolating failures, but it will not
-magically solve normal Python module imports between files that used to live in a package.
+The current MVP executes the selected embedded stage source at runtime using `exec`.
+That keeps build-time behavior safe because fetched repository code is not executed
+while the builder is assembling artifacts.
 
-If a target relies on sibling imports, you will need one of these next:
+If a target relies on sibling imports or stronger package structure, you will need one of these next:
 
 - shared stage namespace execution
 - import rewriting to local generated symbols
-- explicit entrypoint-only execution instead of file-by-file execution
+- explicit entrypoint-only execution instead of raw source dispatch
 - packaging metadata that tells the builder how to inline modules safely
 
 The current MVP is intentionally honest about that limitation instead of pretending bundling is solved.

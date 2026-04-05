@@ -82,9 +82,10 @@ def build_project_plan(
                 project_name=project.project_name,
                 target_name=target_name,
                 output_filename=f"{output_stem}.py",
-                artifact_kind="combined_script",
                 prod_files=prod_files,
                 dev_files=dev_files,
+                stage_order=project.stage_order,
+                artifact_kind="combined_script",
             )
         )
 
@@ -134,9 +135,10 @@ def _build_resource_targets(
                 project_name=project.project_name,
                 target_name=file_path,
                 output_filename=file_path,
-                artifact_kind="raw_file",
                 prod_files=prod_files,
                 dev_files=[],
+                stage_order=[],
+                artifact_kind="raw_file",
             )
         )
     return build_targets

@@ -13,6 +13,12 @@
       "dev"
     ],
     "output_root_directory": "output",
+    "stage_order": [
+      "data_fetcher.py",
+      "preprocessing.py",
+      "processing.py",
+      "output_formatter.py"
+    ],
     "exclude_globs": [
       "**/__pycache__/**",
       "**/tests/**"
@@ -30,6 +36,13 @@
       "dev"
     ],
     "output_root_directory": "output"
+    ,
+    "stage_order": [
+      "data_fetcher.py",
+      "preprocessing.py",
+      "processing.py",
+      "output_formatter.py"
+    ]
   },
   {
     "project_name": "acem-can-opener",
@@ -43,6 +56,13 @@
       "dev"
     ],
     "output_root_directory": "output"
+    ,
+    "stage_order": [
+      "data_fetcher.py",
+      "preprocessing.py",
+      "processing.py",
+      "output_formatter.py"
+    ]
   },
   {
     "project_name": "acem-utilities-explicit-demo",
@@ -53,6 +73,12 @@
       "dev"
     ],
     "output_root_directory": "output",
+    "stage_order": [
+      "data_fetcher.py",
+      "preprocessing.py",
+      "processing.py",
+      "output_formatter.py"
+    ],
     "targets": [
       {
         "name": "acem-utilities-core",

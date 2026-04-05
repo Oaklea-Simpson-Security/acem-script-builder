@@ -42,6 +42,12 @@ Use these target modes:
 - `resource_mirror`
   Use when files should be downloaded and persisted as-is, not combined into a generated script.
 
+For combined-script targets, the generated artifact contains:
+
+- prod stage source from `main`
+- dev stage source from `dev`
+- auto-generated helpers such as `run_both("<stage_name>")`
+
 ## Your Likely Mapping
 
 Based on your description, your repos probably map like this:
@@ -163,9 +169,9 @@ For combined Python outputs, use:
 
 Why:
 
-- `main` becomes prod-wrapped code
-- `dev` becomes dev-wrapped code
-- the generated output runs prod first, then dev
+- `main` becomes prod stage source
+- `dev` becomes dev stage source
+- the generated output can run prod first, then dev for a chosen stage
 
 For resources, use:
 
@@ -201,6 +207,7 @@ What this means:
 - the builder searches under those locations
 - it finds Python files
 - it groups them by their leaf directory
+- it embeds the stage files for each target into one generated artifact
 
 ### For `whole_project`
 
@@ -355,6 +362,15 @@ Example:
 }
 ```
 
+This usually means stage files such as:
+
+- `data_fetcher.py`
+- `preprocessing.py`
+- `processing.py`
+- `output_formatter.py`
+
+If your stage filenames differ, set `stage_order` accordingly.
+
 ### Use `explicit` if:
 
 - only certain files belong in the output
@@ -467,6 +483,116 @@ Example final shape:
   }
 ]
 ```
+
+## Mixed Repo Example
+
+Sometimes one GitLab repo contains two different kinds of content:
+
+- files that should be mirrored and persisted as raw assets
+- directories that contain executable Python code that should go through the combined-script builder
+
+With the current code base, the easiest way to handle that is to represent the same GitLab repo twice in `config/projects.json` using two different config entries.
+
+That means:
+
+- same `project_id`
+- different `project_name`
+- different `target_mode`
+- different `root_paths`
+- different include/exclude rules
+
+### Example
+
+Imagine one repo contains:
+
+```text
+JEMA_resources/
+  file_one.json
+  file_two.json
+  acem-utilities/
+    data_fetcher.py
+    preprocessing.py
+    processing.py
+    output_formatter.py
+```
+
+You can model it like this:
+
+```json
+[
+  {
+    "project_name": "JEMA_resources-assets",
+    "project_id": "56789",
+    "target_mode": "resource_mirror",
+    "root_paths": ["."],
+    "branches": ["main"],
+    "output_root_directory": "output_resources",
+    "include_globs": ["*.json", "**/*.json"],
+    "exclude_globs": [
+      "acem-utilities/**",
+      "**/__pycache__/**",
+      "**/tests/**"
+    ]
+  },
+  {
+    "project_name": "JEMA_resources-acem-utilities",
+    "project_id": "56789",
+    "target_mode": "whole_project",
+    "root_paths": ["acem-utilities/"],
+    "branches": ["main", "dev"],
+    "output_root_directory": "output",
+    "include_globs": ["*.py", "**/*.py"],
+    "exclude_globs": [
+      "**/__pycache__/**",
+      "**/tests/**"
+    ],
+    "stage_order": [
+      "data_fetcher.py",
+      "preprocessing.py",
+      "processing.py",
+      "output_formatter.py"
+    ]
+  }
+]
+```
+
+### What This Does
+
+The first entry:
+
+- watches only `main`
+- mirrors JSON assets as raw files
+- ignores the `acem-utilities/` executable directory
+
+The second entry:
+
+- watches both `main` and `dev`
+- looks only inside `acem-utilities/`
+- builds a combined executable artifact from the Python stage files there
+
+### Why This Works
+
+The current builder already supports multiple project entries in one config file.
+
+So even if the GitLab repository is the same, you can treat different parts of it differently by:
+
+- giving each config entry a unique `project_name`
+- reusing the same `project_id`
+- narrowing each entry with `root_paths`, `include_globs`, and `exclude_globs`
+
+### Important Note
+
+This is a good fit when the repo is organizationally mixed.
+
+It does not automatically solve all Python package/runtime complexity.
+
+If the executable directory is a true multi-module package with complicated imports, the current combined-script approach may still need later improvements such as:
+
+- shared stage namespace execution
+- import rewriting
+- explicit entrypoint contracts
+
+But for configuration purposes, this is the correct way to model a mixed repo with the current code base.
 
 ## Step 10: Set Your GitLab Token
 

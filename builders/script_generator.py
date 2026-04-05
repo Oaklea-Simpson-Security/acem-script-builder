@@ -1,13 +1,13 @@
 """Generate deployable combined scripts.
 
-v1 intentionally preserves source file contents and executes each file in
-its own wrapper. That keeps generation straightforward and deterministic,
-but it also means intra-project imports are not rewritten or bundled.
+The generated artifact is a stage-dispatch container. It embeds the `main`
+and `dev` source text for each known stage and exposes runtime dispatch
+helpers such as `run_both("processing")`.
 """
 
 from __future__ import annotations
 
-import hashlib
+from pathlib import PurePosixPath
 
 from models.config_models import BuildTarget, SourceFile
 
@@ -38,15 +38,11 @@ def generate_combined_script(target: BuildTarget) -> str:
             dev_sha=dev_sha,
         ).strip(),
         _render_runtime_helpers(),
+        _render_stage_order(target),
     ]
 
-    for source_file in target.prod_files:
-        parts.append(_render_wrapper(source_file, target.target_name, "prod"))
-    for source_file in target.dev_files:
-        parts.append(_render_wrapper(source_file, target.target_name, "dev"))
-
-    parts.append(_render_dispatcher("prod", target.prod_files, target.target_name))
-    parts.append(_render_dispatcher("dev", target.dev_files, target.target_name))
+    parts.append(_render_stage_sources(target))
+    parts.append(_render_dispatchers())
     parts.append(_render_main_block())
     return "\n\n\n".join(parts) + "\n"
 
@@ -55,110 +51,153 @@ def _render_runtime_helpers() -> str:
     return """import traceback
 
 
-def log_event(stage, wrapper_name, message):
-    print(f"[{stage}] {wrapper_name}: {message}")
+def log_event(stage, scope, message):
+    print(f"[{stage}] {scope}: {message}")
 
 
-def output_prod(wrapper_name, status, payload=None):
-    print(f"[PROD OUTPUT] {wrapper_name} status={status}")
+def output_prod(stage_name, status, payload=None):
+    print(f"[PROD OUTPUT] {stage_name} status={status}")
     if payload is not None:
         print(payload)
 
 
-def output_test(wrapper_name, status, payload=None):
-    print(f"[DEV OUTPUT] {wrapper_name} status={status}")
+def output_test(stage_name, status, payload=None):
+    print(f"[DEV OUTPUT] {stage_name} status={status}")
     if payload is not None:
         print(payload)
 
 
-def execute_wrapper(stage, wrapper_name, fn):
+def _build_namespace(metadata):
+    return {
+        "__name__": "__generated_stage__",
+        "__file__": metadata["original_file"],
+        "STAGE_METADATA": metadata,
+        "output_prod": output_prod,
+        "output_test": output_test,
+        "log_event": log_event,
+    }
+
+
+def execute_stage(stage_mode, stage_name, stage_record):
+    metadata = stage_record["metadata"]
+    source = stage_record["source"]
+    namespace = _build_namespace(metadata)
     try:
-        payload = fn()
-        if stage == "prod":
-            output_prod(wrapper_name, "success", payload)
+        log_event(stage_mode, stage_name, f"starting {metadata}")
+        exec(
+            compile(
+                source,
+                metadata["original_file"],
+                "exec",
+            ),
+            namespace,
+            namespace,
+        )
+        payload = {
+            "metadata": metadata,
+            "symbols": sorted(namespace.keys()),
+        }
+        if stage_mode == "prod":
+            output_prod(stage_name, "success", payload)
         else:
-            output_test(wrapper_name, "success", payload)
+            output_test(stage_name, "success", payload)
         return payload
     except Exception as exc:
-        log_event(stage, wrapper_name, f"failed with {exc}")
+        log_event(stage_mode, stage_name, f"failed with {exc}")
         traceback.print_exc()
         return None
 """
 
 
-def _render_wrapper(source_file: SourceFile, target_name: str, stage: str) -> str:
-    function_name = _wrapper_name(stage, target_name, source_file.file_path)
-    metadata = (
-        f"source_project={source_file.project_name!r}, "
-        f"source_branch={source_file.branch!r}, "
-        f"source_target={source_file.target_name!r}, "
-        f"original_file={source_file.file_path!r}, "
-        f"commit_sha={source_file.commit_sha!r}"
+def _render_stage_sources(target: BuildTarget) -> str:
+    stage_records: dict[str, dict[str, str]] = {}
+
+    for source_file in target.prod_files:
+        stage_name = _stage_name(source_file.file_path)
+        stage_records.setdefault(stage_name, {})["prod"] = _stage_record(source_file)
+
+    for source_file in target.dev_files:
+        stage_name = _stage_name(source_file.file_path)
+        stage_records.setdefault(stage_name, {})["dev"] = _stage_record(source_file)
+
+    lines = ["STAGE_SOURCES = {"]
+    ordered_stage_names = _ordered_stage_names(target, stage_records)
+    for stage_name in ordered_stage_names:
+        lines.append(f"    {stage_name!r}: {{")
+        if "prod" in stage_records[stage_name]:
+            lines.append(f"        'prod': {stage_records[stage_name]['prod']},")
+        if "dev" in stage_records[stage_name]:
+            lines.append(f"        'dev': {stage_records[stage_name]['dev']},")
+        lines.append("    },")
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def _stage_record(source_file: SourceFile) -> str:
+    return (
+        "{"
+        f"'source': {source_file.content!r}, "
+        "'metadata': {"
+        f"'source_project': {source_file.project_name!r}, "
+        f"'source_branch': {source_file.branch!r}, "
+        f"'source_target': {source_file.target_name!r}, "
+        f"'original_file': {source_file.file_path!r}, "
+        f"'commit_sha': {source_file.commit_sha!r}"
+        "}"
+        "}"
     )
-    return f"""def {function_name}():
-    metadata = dict({metadata})
-    log_event("{stage}", "{function_name}", f"starting {{metadata}}")
-    namespace = {{
-        "__name__": "__generated_wrapper__",
-        "__file__": metadata["original_file"],
-        "WRAPPER_METADATA": metadata,
-    }}
-    exec(
-        compile(
-            {source_file.content!r},
-            metadata["original_file"],
-            "exec",
-        ),
-        namespace,
-        namespace,
-    )
-    return {{
-        "metadata": metadata,
-        "symbols": sorted(namespace.keys()),
-    }}"""
 
 
-def _render_dispatcher(stage: str, files: list[SourceFile], target_name: str) -> str:
-    wrapper_names = [_wrapper_name(stage, target_name, source_file.file_path) for source_file in files]
-    return f"""def run_{stage}():
-    wrappers = [{", ".join(wrapper_names)}]
-    results = []
-    for wrapper in wrappers:
-        results.append(execute_wrapper("{stage}", wrapper.__name__, wrapper))
-    return results"""
+def _render_stage_order(target: BuildTarget) -> str:
+    stage_names = [_stage_name(file_name) for file_name in target.stage_order]
+    return f"STAGE_ORDER = {stage_names!r}"
 
 
-def _render_main_block() -> str:
-    return """if __name__ == "__main__":
+def _render_dispatchers() -> str:
+    return """def available_stages():
+    ordered = [stage_name for stage_name in STAGE_ORDER if stage_name in STAGE_SOURCES]
+    extras = [stage_name for stage_name in sorted(STAGE_SOURCES.keys()) if stage_name not in ordered]
+    return ordered + extras
+
+
+def run_prod_stage(stage_name):
+    stage_record = STAGE_SOURCES[stage_name]["prod"]
+    return execute_stage("prod", stage_name, stage_record)
+
+
+def run_dev_stage(stage_name):
+    stage_record = STAGE_SOURCES[stage_name]["dev"]
+    return execute_stage("dev", stage_name, stage_record)
+
+
+def run_both(stage_name):
     try:
-        run_prod()
+        run_prod_stage(stage_name)
     except Exception as exc:
-        print(f"prod dispatcher failed: {exc}")
+        print(f"prod {stage_name} failed: {exc}")
         traceback.print_exc()
 
     try:
-        run_dev()
+        run_dev_stage(stage_name)
     except Exception as exc:
-        print(f"dev dispatcher failed: {exc}")
+        print(f"dev {stage_name} failed: {exc}")
         traceback.print_exc()
 """
 
 
-def _wrapper_name(stage: str, target_name: str, file_path: str) -> str:
-    clean_target = _slug(target_name)
-    clean_file = _slug(file_path.replace("/", "_"))
-    digest = hashlib.sha1(file_path.encode("utf-8")).hexdigest()[:8]
-    return f"run_{stage}_{clean_target}_{clean_file}_{digest}"
+def _render_main_block() -> str:
+    return """if __name__ == "__main__":
+    print("Generated script loaded.")
+    print("Available stages:", ", ".join(available_stages()))
+    print('Call run_both("<stage_name>") to execute prod then dev for a stage.')
+"""
 
 
-def _slug(value: str) -> str:
-    allowed = []
-    for char in value.lower():
-        if char.isalnum():
-            allowed.append(char)
-        else:
-            allowed.append("_")
-    collapsed = "".join(allowed).strip("_")
-    while "__" in collapsed:
-        collapsed = collapsed.replace("__", "_")
-    return collapsed or "target"
+def _stage_name(file_path: str) -> str:
+    return PurePosixPath(file_path).stem
+
+
+def _ordered_stage_names(target: BuildTarget, stage_records: dict[str, dict[str, str]]) -> list[str]:
+    ordered = [_stage_name(file_name) for file_name in target.stage_order if _stage_name(file_name) in stage_records]
+    extras = [stage_name for stage_name in sorted(stage_records) if stage_name not in ordered]
+    return ordered + extras

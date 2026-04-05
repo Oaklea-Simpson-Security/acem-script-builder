@@ -15,8 +15,9 @@ The builder solves that by:
 - discovering build targets per project
 - fetching Python files from `main` and `dev`
 - generating one combined artifact per target
-- executing `prod` first and `dev` second inside the artifact
-- isolating failures so `prod` and `dev` do not block each other
+- embedding ordered stage sources from both branches into the artifact
+- exposing runtime helpers such as `run_both("processing")`
+- executing `prod` first and `dev` second for the selected stage
 - mirroring raw resource files for repos that should not go through the combined-script pipeline
 
 ## Project Layout
@@ -45,5 +46,6 @@ python3 main.py --config config/projects.json --state state/build_state.json
 - Directory discovery is useful for fast onboarding, but it is not a reliable long-term ownership model.
 - The sustainable source of truth is an explicit target manifest, even when leaf-directory discovery is used initially.
 - v1 rebuilds an entire target from both branch heads whenever either tracked branch changes.
-- v1 preserves source file contents inside generated wrappers instead of attempting aggressive import rewriting.
+- v1 preserves source file contents as embedded stage source strings instead of aggressively rewriting imports.
+- v1 expects the generated script to be called through dispatch helpers such as `run_both("<stage_name>")`.
 - v1 also supports `resource_mirror` for non-script assets such as JSON resources that should be fetched from `main` and persisted as raw files.

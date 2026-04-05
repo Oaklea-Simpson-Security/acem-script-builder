@@ -12,113 +12,140 @@ This file is generated. Do not edit by hand.
 import traceback
 
 
-def log_event(stage, wrapper_name, message):
-    print(f"[{stage}] {wrapper_name}: {message}")
+def log_event(stage, scope, message):
+    print(f"[{stage}] {scope}: {message}")
 
 
-def output_prod(wrapper_name, status, payload=None):
-    print(f"[PROD OUTPUT] {wrapper_name} status={status}")
+def output_prod(stage_name, status, payload=None):
+    print(f"[PROD OUTPUT] {stage_name} status={status}")
     if payload is not None:
         print(payload)
 
 
-def output_test(wrapper_name, status, payload=None):
-    print(f"[DEV OUTPUT] {wrapper_name} status={status}")
+def output_test(stage_name, status, payload=None):
+    print(f"[DEV OUTPUT] {stage_name} status={status}")
     if payload is not None:
         print(payload)
 
 
-def execute_wrapper(stage, wrapper_name, fn):
+def _build_namespace(metadata):
+    return {
+        "__name__": "__generated_stage__",
+        "__file__": metadata["original_file"],
+        "STAGE_METADATA": metadata,
+        "output_prod": output_prod,
+        "output_test": output_test,
+        "log_event": log_event,
+    }
+
+
+def execute_stage(stage_mode, stage_name, stage_record):
+    metadata = stage_record["metadata"]
+    source = stage_record["source"]
+    namespace = _build_namespace(metadata)
     try:
-        payload = fn()
-        if stage == "prod":
-            output_prod(wrapper_name, "success", payload)
+        log_event(stage_mode, stage_name, f"starting {metadata}")
+        exec(
+            compile(
+                source,
+                metadata["original_file"],
+                "exec",
+            ),
+            namespace,
+            namespace,
+        )
+        payload = {
+            "metadata": metadata,
+            "symbols": sorted(namespace.keys()),
+        }
+        if stage_mode == "prod":
+            output_prod(stage_name, "success", payload)
         else:
-            output_test(wrapper_name, "success", payload)
+            output_test(stage_name, "success", payload)
         return payload
     except Exception as exc:
-        log_event(stage, wrapper_name, f"failed with {exc}")
+        log_event(stage_mode, stage_name, f"failed with {exc}")
         traceback.print_exc()
         return None
 
 
-def run_prod_acem_feed_one_models_feeds_acem_feed_one_fetcher_py_1a2b3c4d():
-    metadata = dict(
-        source_project="models",
-        source_branch="main",
-        source_target="acem-feed-one",
-        original_file="Models/Feeds/acem-feed-one/fetcher.py",
-        commit_sha="1111111111111111111111111111111111111111",
-    )
-    log_event("prod", "run_prod_acem_feed_one_models_feeds_acem_feed_one_fetcher_py_1a2b3c4d", f"starting {metadata}")
-    namespace = {
-        "__name__": "__generated_wrapper__",
-        "__file__": metadata["original_file"],
-        "WRAPPER_METADATA": metadata,
-    }
-    exec(
-        compile(
-            "def fetch():\n    return {'source': 'prod'}\n",
-            metadata["original_file"],
-            "exec",
-        ),
-        namespace,
-        namespace,
-    )
-    return {"metadata": metadata, "symbols": sorted(namespace.keys())}
+STAGE_SOURCES = {
+    "data_fetcher": {
+        "prod": {
+            "source": "def fetch():\n    return {'source': 'prod'}\n",
+            "metadata": {
+                "source_project": "models",
+                "source_branch": "main",
+                "source_target": "acem-feed-one",
+                "original_file": "Models/Feeds/acem-feed-one/data_fetcher.py",
+                "commit_sha": "1111111111111111111111111111111111111111",
+            },
+        },
+        "dev": {
+            "source": "def fetch():\n    return {'source': 'dev'}\n",
+            "metadata": {
+                "source_project": "models",
+                "source_branch": "dev",
+                "source_target": "acem-feed-one",
+                "original_file": "Models/Feeds/acem-feed-one/data_fetcher.py",
+                "commit_sha": "2222222222222222222222222222222222222222",
+            },
+        },
+    },
+    "processing": {
+        "prod": {
+            "source": "def process(data):\n    return {'processed': 'prod', 'data': data}\n",
+            "metadata": {
+                "source_project": "models",
+                "source_branch": "main",
+                "source_target": "acem-feed-one",
+                "original_file": "Models/Feeds/acem-feed-one/processing.py",
+                "commit_sha": "1111111111111111111111111111111111111111",
+            },
+        },
+        "dev": {
+            "source": "def process(data):\n    return {'processed': 'dev', 'data': data}\n",
+            "metadata": {
+                "source_project": "models",
+                "source_branch": "dev",
+                "source_target": "acem-feed-one",
+                "original_file": "Models/Feeds/acem-feed-one/processing.py",
+                "commit_sha": "2222222222222222222222222222222222222222",
+            },
+        },
+    },
+}
 
 
-def run_dev_acem_feed_one_models_feeds_acem_feed_one_fetcher_py_1a2b3c4d():
-    metadata = dict(
-        source_project="models",
-        source_branch="dev",
-        source_target="acem-feed-one",
-        original_file="Models/Feeds/acem-feed-one/fetcher.py",
-        commit_sha="2222222222222222222222222222222222222222",
-    )
-    log_event("dev", "run_dev_acem_feed_one_models_feeds_acem_feed_one_fetcher_py_1a2b3c4d", f"starting {metadata}")
-    namespace = {
-        "__name__": "__generated_wrapper__",
-        "__file__": metadata["original_file"],
-        "WRAPPER_METADATA": metadata,
-    }
-    exec(
-        compile(
-            "def fetch():\n    return {'source': 'dev'}\n",
-            metadata["original_file"],
-            "exec",
-        ),
-        namespace,
-        namespace,
-    )
-    return {"metadata": metadata, "symbols": sorted(namespace.keys())}
+def available_stages():
+    return sorted(STAGE_SOURCES.keys())
 
 
-def run_prod():
-    wrappers = [run_prod_acem_feed_one_models_feeds_acem_feed_one_fetcher_py_1a2b3c4d]
-    results = []
-    for wrapper in wrappers:
-        results.append(execute_wrapper("prod", wrapper.__name__, wrapper))
-    return results
+def run_prod_stage(stage_name):
+    stage_record = STAGE_SOURCES[stage_name]["prod"]
+    return execute_stage("prod", stage_name, stage_record)
 
 
-def run_dev():
-    wrappers = [run_dev_acem_feed_one_models_feeds_acem_feed_one_fetcher_py_1a2b3c4d]
-    results = []
-    for wrapper in wrappers:
-        results.append(execute_wrapper("dev", wrapper.__name__, wrapper))
-    return results
+def run_dev_stage(stage_name):
+    stage_record = STAGE_SOURCES[stage_name]["dev"]
+    return execute_stage("dev", stage_name, stage_record)
+
+
+def run_both(stage_name):
+    try:
+        run_prod_stage(stage_name)
+    except Exception as exc:
+        print(f"prod {stage_name} failed: {exc}")
+        traceback.print_exc()
+
+    try:
+        run_dev_stage(stage_name)
+    except Exception as exc:
+        print(f"dev {stage_name} failed: {exc}")
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
-    try:
-        run_prod()
-    except Exception as exc:
-        print(f"prod dispatcher failed: {exc}")
-        traceback.print_exc()
-
-    try:
-        run_dev()
-    except Exception as exc:
-        print(f"dev dispatcher failed: {exc}")
-        traceback.print_exc()
+    print("Generated script loaded.")
+    print("Available stages:", ", ".join(available_stages()))
+    print('Call run_both("<stage_name>") to execute prod then dev for a stage.')
