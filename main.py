@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
-from pathlib import Path
 
 from builders.plan_builder import build_project_plan
 from builders.script_generator import generate_combined_script
@@ -23,13 +21,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--state", default="state/build_state.json", help="Path to build state JSON.")
     parser.add_argument(
         "--gitlab-base-url",
-        default=os.environ.get("GITLAB_BASE_URL", "https://gitlab.com"),
+        default="https://gitlab.com",
         help="GitLab base URL.",
     )
     parser.add_argument(
         "--gitlab-token",
-        default=os.environ.get("GITLAB_TOKEN"),
-        help="GitLab private token. Can also be provided via GITLAB_TOKEN.",
+        default="",
+        help="GitLab private token.",
     )
     parser.add_argument(
         "--log-level",
@@ -58,10 +56,8 @@ def main() -> int:
     if not args.gitlab_token:
         raise SystemExit("A GitLab token is required. Set GITLAB_TOKEN or pass --gitlab-token.")
 
-    config_path = Path(args.config)
-    state_path = Path(args.state)
-    projects = load_project_configs(config_path)
-    state_store = BuildStateStore(state_path)
+    projects = load_project_configs(args.config)
+    state_store = BuildStateStore(args.state)
     client = GitLabClient(args.gitlab_base_url, args.gitlab_token)
 
     for project in projects:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 
@@ -84,12 +83,13 @@ class BuildPlan:
     targets: list[BuildTarget]
 
 
-def load_project_configs(config_path: Path) -> list[ProjectConfig]:
+def load_project_configs(config_path: str) -> list[ProjectConfig]:
     """Load a JSON array of project configs from disk."""
 
     import json
 
-    raw = json.loads(config_path.read_text(encoding="utf-8"))
+    with open(config_path, encoding="utf-8") as handle:
+        raw = json.load(handle)
     projects: list[ProjectConfig] = []
     for item in raw:
         explicit_targets = [
@@ -127,10 +127,21 @@ def load_project_configs(config_path: Path) -> list[ProjectConfig]:
     return projects
 
 
-def dump_json(data: dict[str, Any], path: Path) -> None:
+def dump_json(data: dict[str, Any], path: str) -> None:
     """Write JSON with stable formatting."""
 
     import json
+    import subprocess
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    parent = _parent_directory(path)
+    if parent:
+        subprocess.run(["mkdir", "-p", parent], check=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def _parent_directory(path: str) -> str:
+    normalized = path.replace("\\", "/").rstrip("/")
+    if "/" not in normalized:
+        return ""
+    return normalized.rsplit("/", 1)[0]

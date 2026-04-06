@@ -7,8 +7,6 @@ helpers such as `run_both("processing")`.
 
 from __future__ import annotations
 
-from pathlib import PurePosixPath
-
 from models.config_models import BuildTarget, SourceFile
 
 
@@ -194,7 +192,10 @@ def _render_main_block() -> str:
 
 
 def _stage_name(file_path: str) -> str:
-    return PurePosixPath(file_path).stem
+    filename = file_path.strip("/").rsplit("/", 1)[-1]
+    if "." not in filename:
+        return filename
+    return filename.rsplit(".", 1)[0]
 
 
 def _ordered_stage_names(target: BuildTarget, stage_records: dict[str, dict[str, str]]) -> list[str]:

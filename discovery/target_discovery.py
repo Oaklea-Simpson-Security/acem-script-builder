@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from fnmatch import fnmatch
-from pathlib import PurePosixPath
 
 from models.config_models import BranchSnapshot, ExplicitTargetConfig, ProjectConfig
 
 
 def _is_python_file(path: str, extensions: list[str]) -> bool:
-    return PurePosixPath(path).suffix in extensions
+    filename = _basename(path)
+    if "." not in filename:
+        return False
+    return "." + filename.rsplit(".", 1)[1] in extensions
 
 
 def _matches_any(path: str, globs: list[str]) -> bool:
@@ -36,7 +38,7 @@ def _leaf_directory_targets(project: ProjectConfig, snapshot: BranchSnapshot) ->
             normalized_path = path.strip("/")
             if normalized_root and not normalized_path.startswith(normalized_root):
                 continue
-            parent = str(PurePosixPath(path).parent)
+            parent = _parent_directory(path)
             directory_to_files.setdefault(parent, []).append(path)
 
     all_directories = set(directory_to_files.keys())
@@ -47,7 +49,7 @@ def _leaf_directory_targets(project: ProjectConfig, snapshot: BranchSnapshot) ->
             for other in all_directories
         )
         if not is_parent:
-            leaf_targets[PurePosixPath(directory).name] = sorted(files)
+            leaf_targets[_basename(directory)] = sorted(files)
     return leaf_targets
 
 
@@ -111,3 +113,17 @@ def discover_targets(project: ProjectConfig, snapshot: BranchSnapshot) -> dict[s
     if project.target_mode == "resource_mirror":
         return _resource_mirror_targets(project, snapshot)
     raise ValueError(f"Unsupported target_mode: {project.target_mode}")
+
+
+def _parent_directory(path: str) -> str:
+    normalized = path.strip("/")
+    if "/" not in normalized:
+        return "."
+    return normalized.rsplit("/", 1)[0]
+
+
+def _basename(path: str) -> str:
+    normalized = path.strip("/")
+    if not normalized:
+        return ""
+    return normalized.rsplit("/", 1)[-1]

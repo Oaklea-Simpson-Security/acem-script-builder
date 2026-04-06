@@ -35,10 +35,14 @@ The builder solves that by:
 
 ## Run
 
-Set `GITLAB_TOKEN` and optionally `GITLAB_BASE_URL`, then run:
+Pass the GitLab token and, if needed, a custom GitLab base URL on the command line:
 
 ```bash
-python3 main.py --config config/projects.json --state state/build_state.json
+python3 main.py \
+  --config config/projects.json \
+  --state state/build_state.json \
+  --gitlab-token "your-token" \
+  --gitlab-base-url "https://gitlab.com"
 ```
 
 ## Opinionated v1 Notes
@@ -49,3 +53,4 @@ python3 main.py --config config/projects.json --state state/build_state.json
 - v1 preserves source file contents as embedded stage source strings instead of aggressively rewriting imports.
 - v1 expects the generated script to be called through dispatch helpers such as `run_both("<stage_name>")`.
 - v1 also supports `resource_mirror` for non-script assets such as JSON resources that should be fetched from `main` and persisted as raw files.
+- The builder no longer depends on `Path`, `os`, `sys`, or `io`; filesystem handling is done with plain strings, `open()`, and simple helpers.

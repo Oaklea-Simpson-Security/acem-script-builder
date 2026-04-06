@@ -29,8 +29,10 @@ The format is based on Keep a Changelog, and this project currently uses date-ba
 - Architecture notes in `docs/architecture.md`.
 - Basic run documentation in `README.md`.
 - Dependency declaration in `requirements.txt`.
+- String-based filesystem handling that avoids `Path`, `os`, `sys`, and `io`.
 
 ### Notes
 
 - The MVP preserves file contents as embedded stage source strings and executes the chosen stage at runtime rather than during build.
 - Directory-based grouping is supported for now, but the recommended long-term direction is a manifest-first, explicit target model.
+- The CLI now expects `--gitlab-token` and optional `--gitlab-base-url` arguments instead of reading GitLab settings from environment variables.
